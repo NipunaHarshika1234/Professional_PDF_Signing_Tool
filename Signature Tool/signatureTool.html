@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignaturePro | Professional PDF Signing Tool</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Core PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    
+    <!-- Interaction & Signature Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+
+    <!-- Project Styling -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <i data-lucide="pen-tool"></i>
+            <span>SignaturePro</span>
+        </div>
+        
+        <nav class="nav-links">
+            <button class="nav-item active" onclick="showTab('upload-tab')">
+                <i data-lucide="file-up"></i> Upload PDF
+            </button>
+            <button class="nav-item" id="nav-editor" onclick="showTab('editor-tab')">
+                <i data-lucide="layers"></i> Editor & Panning
+            </button>
+            <button class="nav-item" id="nav-create" onclick="showTab('create-tab')">
+                <i data-lucide="pencil"></i> Create Signature
+            </button>
+        </nav>
+
+        <div class="signature-bank" id="sig-bank-container">
+            <p class="bank-title">Your Signatures</p>
+            <div id="bank-list">
+                <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 1rem;">Sign first to see items here</p>
+            </div>
+            <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1rem; text-align: center;">Drag into document to place</p>
+        </div>
+
+        <div style="margin-top: auto;">
+            <div id="file-info" class="hidden">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                    <i data-lucide="file-text" style="width: 14px;"></i>
+                    <span id="file-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;"></span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header-bar">
+            <div id="page-nav" class="hidden controls">
+                <button class="btn btn-outline" style="padding: 0.4rem;" onclick="prevPage()"><i data-lucide="chevron-left"></i></button>
+                <span id="page-num-display" style="font-size: 0.9rem; min-width: 80px; text-align: center;">Page 1 / 1</span>
+                <button class="btn btn-outline" style="padding: 0.4rem;" onclick="nextPage()"><i data-lucide="chevron-right"></i></button>
+            </div>
+
+            <div class="zoom-controls hidden" id="zoom-ctrl">
+                <button class="btn btn-outline" style="border:none;" onclick="adjustZoom(-0.2)"><i data-lucide="minus"></i></button>
+                <span id="zoom-level" style="font-size: 0.85rem; min-width: 45px; text-align: center;">100%</span>
+                <button class="btn btn-outline" style="border:none;" onclick="adjustZoom(0.2)"><i data-lucide="plus"></i></button>
+            </div>
+
+            <button class="btn btn-primary hidden" id="download-btn" onclick="generateSignedPDF()">
+                <i data-lucide="download"></i> Download PDF
+            </button>
+        </header>
+
+        <div class="main-stage">
+            <!-- Upload Tab -->
+            <div id="upload-tab" class="tab-content active">
+                <div class="sig-pad-card" style="text-align: center; margin-top: 4rem;">
+                    <i data-lucide="upload-cloud" style="width: 64px; height: 64px; color: var(--primary); margin-bottom: 2rem;"></i>
+                    <h2 style="font-size: 2rem; margin-bottom: 1rem;">Let's get started</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 3rem;">Upload a PDF to start signing and placing signatures.</p>
+                    
+                    <button class="btn btn-primary" style="padding: 1rem 3rem; font-size: 1.1rem; border-radius: 1rem;" onclick="document.getElementById('pdf-input').click()">
+                        Select PDF File
+                    </button>
+                    <input type="file" id="pdf-input" class="hidden" accept="application/pdf">
+                </div>
+            </div>
+
+            <!-- Editor Tab -->
+            <div id="editor-tab" class="tab-content">
+                <div id="pdf-viewport">
+                    <div id="pdf-container">
+                        <canvas id="pdf-canvas"></canvas>
+                        <!-- Signature Overlays injected here -->
+                    </div>
+                    <div class="drop-hint" id="editor-hint">
+                        <i data-lucide="mouse-pointer-2" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
+                        <p>Drag a signature from the sidebar onto the document</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Tab -->
+            <div id="create-tab" class="tab-content">
+                <div class="sig-pad-card">
+                    <h2>Draw your signature</h2>
+                    <p class="subtitle">Your signature will be saved to your bank for easy placement.</p>
+                    
+                    <div class="canvas-wrapper">
+                        <canvas id="signature-canvas"></canvas>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="controls">
+                            <div style="background: #000; width: 24px; height: 24px; border-radius: 50%; cursor: pointer;" onclick="setPenColor('#000')"></div>
+                            <div style="background: #2563eb; width: 24px; height: 24px; border-radius: 50%; cursor: pointer;" onclick="setPenColor('#2563eb')"></div>
+                            
+                            <div style="margin-left: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">Thickness:</span>
+                                <input type="range" min="1" max="8" value="2" step="0.5" oninput="setPenWidth(this.value)" style="width: 80px; cursor: pointer;">
+                            </div>
+                            
+                            <button class="btn btn-outline" style="margin-left: 0.5rem;" onclick="clearSignature()">Clear</button>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveSignatureToBank()">
+                            <i data-lucide="plus"></i> Add to Bank
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast">Message here</div>
+
+    <!-- Project Logic -->
+    <script src="script.js"></script>
+</body>
+</html>
